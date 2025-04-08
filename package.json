@@ -1,0 +1,14 @@
+{
+  "name": "assistente-juridico-bot",
+  "version": "1.0.0",
+  "description": "Bot de WhatsApp para atendimento jurídico usando Baileys e n8n",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.6.0",
+    "axios": "^1.5.0",
+    "mime-types": "^2.1.35"
+  }
+}
