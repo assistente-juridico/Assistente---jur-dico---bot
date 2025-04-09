@@ -9,6 +9,8 @@
   "dependencies": {
     "@whiskeysockets/baileys": "^6.6.0",
     "axios": "^1.5.0",
-    "mime-types": "^2.1.35"
+    "express": "^5.1.0",
+    "mime-types": "^2.1.35",
+    "qrcode-terminal": "^0.12.0"
   }
 }

@@ -1,47 +1,52 @@
+const { default: makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys");
 const { Boom } = require("@hapi/boom");
-const makeWASocket = require("@whiskeysockets/baileys").default;
-const { useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
-const axios = require("axios");
-const mime = require("mime-types");
-const fs = require("fs");
+const express = require("express");
 
-const webhookUrl = "https://marivaldo1990.app.n8n.cloud/webhook-test/assistente-juridico-audio";
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-    const { version } = await fetchLatestBaileysVersion();
+app.use(express.json());
 
-    const sock = makeWASocket({
-        version,
-        printQRInTerminal: true,
-        auth: state
-    });
+async function connectToWhatsApp() {
+  const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
 
-    sock.ev.on("creds.update", saveCreds);
+  const sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: true,
+  });
 
-    sock.ev.on("messages.upsert", async ({ messages, type }) => {
-        if (type !== "notify") return;
+  sock.ev.on("creds.update", saveCreds);
 
-        for (let msg of messages) {
-            if (!msg.message || msg.key.fromMe) return;
+  sock.ev.on("connection.update", (update) => {
+    const { connection, lastDisconnect } = update;
 
-            const sender = msg.key.remoteJid;
-            const messageType = Object.keys(msg.message)[0];
+    if (connection === "close") {
+      const shouldReconnect =
+        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      console.log("Conexão encerrada. Reconectar?", shouldReconnect);
+      if (shouldReconnect) {
+        connectToWhatsApp();
+      }
+    } else if (connection === "open") {
+      console.log("Conectado com sucesso ao WhatsApp");
+    }
+  });
 
-            const payload = {
-                sender,
-                messageType,
-                content: msg.message[messageType]
-            };
+  sock.ev.on("messages.upsert", async (m) => {
+    console.log("Mensagem recebida", JSON.stringify(m, undefined, 2));
 
-            try {
-                await axios.post(webhookUrl, payload);
-                console.log("Enviado ao webhook:", payload);
-            } catch (err) {
-                console.error("Erro ao enviar para o webhook:", err.message);
-            }
-        }
-    });
+    const msg = m.messages[0];
+    const texto = msg.message?.conversation;
+
+    if (!msg.key.fromMe && texto) {
+      const resposta = `Você disse: "${texto}"`;
+      await sock.sendMessage(msg.key.remoteJid, { text: resposta });
+    }
+  });
 }
 
-startBot();
+connectToWhatsApp().catch((err) => console.error("Erro na conexão:", err));
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
